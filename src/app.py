@@ -11,12 +11,15 @@ logger.disabled = True
 TOGETHER_ENDPOINT = "https://api.together.xyz/v1"
 TOGETHER_TOKEN = os.environ["TOGETHER_API_KEY"]
 TOGETHER_MODELS = [
+#    "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo"
 ]
 OPENAI_MODELS = [
-    "gpt-3.5-turbo"
+#    "gpt-3.5-turbo"
 ]
 
 was_multiply_invoked = False
+was_get_age_invoked = False
 
 @tool
 def multiply(a: int, b: int) -> int:
@@ -27,24 +30,36 @@ def multiply(a: int, b: int) -> int:
     #print (f"Multiplying {a} * {b}.  The answer is {result}")
     return result
 
-def test_model(endpoint, token, model_name):
+@tool
+def get_age(name: str) -> int:
+    """ Get the age of the person identified by name. """
+    global was_get_age_invoked
+    was_get_age_invoked = True
+    ages = [
+        {'name': 'bob', 'age': 52},
+        {'name': 'jane', 'age': 25},
+        {'name': 'john', 'age': 42}
+    ]
+    for person in ages:
+        if person["name"].lower() == name.lower():
+            return int(person["age"])
+    raise ValueError("Cannot find person with name: " + name)
+
+system_prompt = """You are a helpful assistant.  When relevant to the user's inquiry, use the tools provided to accurately respond to user queries.  """
+prompt = ChatPromptTemplate.from_messages([
+    ("system", system_prompt),
+    MessagesPlaceholder(variable_name="chat_history", optional=True),
+    ("human", "{input}"),
+    MessagesPlaceholder(variable_name="agent_scratchpad"),
+])
+
+def reset():
     global was_multiply_invoked
     was_multiply_invoked = False
+    global was_get_age_invoked
+    was_get_age_invoked = False
 
-    llm = ChatOpenAI(base_url=endpoint,
-                    api_key=token,
-                    model=model_name,
-                    temperature=0.7)
-
-    system_prompt = """You are a helpful assistant.  Use the tools provided to respond to user queries accurately and kindly."""
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", system_prompt),
-        MessagesPlaceholder(variable_name="chat_history", optional=True),
-        ("human", "{input}"),
-        MessagesPlaceholder(variable_name="agent_scratchpad"),
-    ])
-
-    tools = [multiply]
+def run_test(llm, tools, test_prompt):
     agent = create_openai_tools_agent(llm, tools, prompt)
     agent_executor = AgentExecutor(
         agent=agent,
@@ -53,13 +68,28 @@ def test_model(endpoint, token, model_name):
         handle_parsing_errors=True,
     )
 
-    response = agent_executor.invoke({"input": "What's 8 * 4?"})
+    response = agent_executor.invoke({"input": test_prompt})
     output = response["output"]
 
     if was_multiply_invoked:
         print (f"PASSED!!!  {output}")
     else:
         print (f"FAILED!!!  {output}")
+
+
+def test_model(endpoint, token, model_name):
+    reset()
+
+    llm = ChatOpenAI(base_url=endpoint,
+                    api_key=token,
+                    model=model_name,
+                    temperature=0.7)
+
+    tools = [multiply]
+    run_test(llm, tools, "Bob's favorite number is 4.  What is 8 times that number?")
+
+    tools = [multiply, get_age]
+    run_test(llm, tools, "What is Bob's age times two?")
 
 
 for model in OPENAI_MODELS:
