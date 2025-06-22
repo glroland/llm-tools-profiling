@@ -1,7 +1,7 @@
 import os
 import logging
 from langchain_openai import ChatOpenAI
-from langchain.agents import create_openai_tools_agent, AgentExecutor
+from langchain.agents import create_tool_calling_agent, AgentExecutor
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.tools import tool
 
@@ -15,6 +15,7 @@ TOGETHER_MODELS = [
 #    "meta-llama/Llama-3.3-70B-Instruct-Turbo",
 #    "Qwen/Qwen2.5-VL-72B-Instruct",
 #    "meta-llama/Llama-4-Scout-17B-16E-Instruct",
+#    "deepseek-ai/DeepSeek-R1",
 ]
 OPENAI_MODELS = [
     "gpt-3.5-turbo",
@@ -47,7 +48,7 @@ def get_age(name: str) -> int:
             return int(person["age"])
     raise ValueError("Cannot find person with name: " + name)
 
-system_prompt = """You are a helpful assistant.  When relevant to the user's inquiry, use the tools provided to accurately respond to user queries.  """
+system_prompt = """You are a helpful assistant.  When relevant to the user's inquiry, use the tools provided to accurately respond to user queries.  The use of tools is optional if you can confidently answer the question based on your own knowledge. """
 prompt = ChatPromptTemplate.from_messages([
     ("system", system_prompt),
     MessagesPlaceholder(variable_name="chat_history", optional=True),
@@ -64,7 +65,7 @@ def reset():
 def run_test(llm, test_prompt):
     tools = [multiply, get_age]
 
-    agent = create_openai_tools_agent(llm, tools, prompt)
+    agent = create_tool_calling_agent(llm, tools, prompt)
     agent_executor = AgentExecutor(
         agent=agent,
         tools=tools,
@@ -85,19 +86,42 @@ def test_model(endpoint, token, model_name):
                     temperature=0.7)
 
     output = run_test(llm, "What's the capital of France?")
-    if not was_multiply_invoked and not was_get_age_invoked:
+    if not was_multiply_invoked and \
+       not was_get_age_invoked and \
+       "PARIS" in output.upper():
         print (f"PASSED!!!  {output}")
     else:
         print (f"FAILED!!!  {output}")
 
     output = run_test(llm, "Bob's favorite number is 4.  What is 8 times that number?")
-    if was_multiply_invoked and not was_get_age_invoked:
+    if was_multiply_invoked and \
+       not was_get_age_invoked and \
+       "32" in output.upper():
         print (f"PASSED!!!  {output}")
     else:
         print (f"FAILED!!!  {output}")
 
+    output = run_test(llm, "What is Bob's age?  What is 5 * 9?")
+    if was_multiply_invoked and \
+       was_get_age_invoked and \
+       "52" in output.upper() and \
+       "45" in output.upper():
+        print (f"PASSED!!!  {output}")
+    else:
+        print (f"FAILED!!!  {output}. Mult={was_multiply_invoked} Age={was_get_age_invoked}")
+
     output = run_test(llm, "What is Bob's age times two?")
-    if was_multiply_invoked and was_get_age_invoked:
+    if was_multiply_invoked and \
+       was_get_age_invoked and \
+       "104" in output.upper():
+        print (f"PASSED!!!  {output}")
+    else:
+        print (f"FAILED!!!  {output}. Mult={was_multiply_invoked} Age={was_get_age_invoked}")
+
+    output = run_test(llm, "What is Bob's age times Jane's age times John's age times 4?")
+    if was_multiply_invoked and \
+       was_get_age_invoked and \
+       "218400" in output.upper():
         print (f"PASSED!!!  {output}")
     else:
         print (f"FAILED!!!  {output}. Mult={was_multiply_invoked} Age={was_get_age_invoked}")
