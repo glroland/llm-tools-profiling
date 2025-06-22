@@ -12,10 +12,10 @@ TOGETHER_ENDPOINT = "https://api.together.xyz/v1"
 TOGETHER_TOKEN = os.environ["TOGETHER_API_KEY"]
 TOGETHER_MODELS = [
 #    "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
-    "meta-llama/Llama-3.3-70B-Instruct-Turbo"
+#    "meta-llama/Llama-3.3-70B-Instruct-Turbo"
 ]
 OPENAI_MODELS = [
-#    "gpt-3.5-turbo"
+    "gpt-3.5-turbo"
 ]
 
 was_multiply_invoked = False
