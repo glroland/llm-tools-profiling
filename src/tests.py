@@ -1,7 +1,6 @@
 from pydantic_core._pydantic_core import ValidationError
 from langchain_openai import ChatOpenAI
-from langchain.agents import create_tool_calling_agent, AgentExecutor
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain.agents import create_agent
 from tools import TOOLS, reset, was_tool_invoked
 
 def test_model(endpoint, token, model_name):
@@ -18,24 +17,12 @@ def run_test(llm, test_prompt):
     tools = TOOLS
 
     system_prompt = """You are a helpful assistant.  When relevant to the user's inquiry, use the tools provided to accurately respond to user queries.  The use of tools is optional if you can confidently answer the question based on your own knowledge. """
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", system_prompt),
-        MessagesPlaceholder(variable_name="chat_history", optional=True),
-        ("human", "{input}"),
-        MessagesPlaceholder(variable_name="agent_scratchpad"),
-    ])
 
-    agent = create_tool_calling_agent(llm, tools, prompt)
-    agent_executor = AgentExecutor(
-        agent=agent,
-        tools=tools,
-        verbose=False,
-        handle_parsing_errors=True,
-    )
+    agent = create_agent(llm, tools, system_prompt=system_prompt)
 
     try:
-        response = agent_executor.invoke({"input": test_prompt})
-        output = response["output"]
+        response = agent.invoke({"messages": [{"role": "user", "content": test_prompt}]})
+        output = response["messages"][-1].content
         return output
     except ValidationError as e:
         return "EXCEPTION::ValidationError::" + str(e)
@@ -90,7 +77,7 @@ def run_test_many_tools_dependence(llm):
     output = run_test(llm, "What is Bob's age times Jane's age times John's age times 4?")
     if was_tool_invoked("multiply") and \
        was_tool_invoked("get_age") and \
-       "218400" in output.upper():
+       ("218400" in output.upper() or "218,400" in output.upper()):
         print (f"PASSED!!!  {output}")
     else:
         print (f"FAILED!!!  {output}")
