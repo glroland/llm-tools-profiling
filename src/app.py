@@ -2,8 +2,10 @@ import os
 import logging
 from tests import test_model
 
+EVOLVE_ENDPOINT = "http://evolvewired:8080/v1"
 TOGETHER_ENDPOINT = "https://api.together.xyz/v1"
 TOGETHER_TOKEN = os.environ["TOGETHER_API_KEY"]
+NO_KEY_NEEDED = "no_key_needed"
 TOGETHER_MODELS = [
 
     # Fails on everything
@@ -35,12 +37,14 @@ TOGETHER_MODELS = [
     #"google/gemma-4-31B-it",
     #"openai/gpt-oss-120b",
     #"moonshotai/Kimi-K2.6",
-
-
 ]
 OPENAI_MODELS = [
     # Successful with all tests
     #"gpt-3.5-turbo",
+]
+EVOLVE_MODELS = [
+    # Successful with all tests
+    #"gemma-4"
 ]
 
 def main():
@@ -54,6 +58,12 @@ def main():
         print (f"Testing Together Model: {model}")
         print ("----------------------------------------")
         test_model(TOGETHER_ENDPOINT, TOGETHER_TOKEN, model)
+        print ()
+
+    for model in EVOLVE_MODELS:
+        print (f"Testing Evolve Model: {model}")
+        print ("----------------------------------------")
+        test_model(EVOLVE_ENDPOINT, NO_KEY_NEEDED, model)
         print ()
 
 if __name__ == "__main__":
